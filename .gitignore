@@ -1,0 +1,14 @@
+*.o
+*.obj
+
+*.bin
+*.elf
+
+bin/
+.vscode/
+.cache/
+compile_commands.json
+temp.log
+temp.errors
+*.ini
+.d/
