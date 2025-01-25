@@ -1,16 +1,18 @@
 #include "main.h"
 #include "lemlib/api.hpp" // IWYU pragma: keep
+#include "lemlib/chassis/trackingWheel.hpp"
 
 // controller
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
 // motor groups
-pros::MotorGroup leftMotors({-10, 9, -8, 7},
+pros::MotorGroup leftMotors({-1, 2, -3, 4, -5},
                             pros::MotorGearset::blue); // left motor group
-pros::MotorGroup rightMotors({-4, 3, -2, 1}, pros::MotorGearset::blue); // right motor group
+pros::MotorGroup rightMotors({ 11, -12, 13, -14, 15}, 
+                            pros::MotorGearset::blue); // right motor group
 
 // Inertial Sensor 
-pros::Imu imu(13);
+pros::Imu imu(18);
 
 // tracking wheels (NOT APPLICABLE AT THE MOMENT)
 // horizontal tracking wheel encoder. Rotation sensor, port 20, not reversed
@@ -26,9 +28,9 @@ lemlib::TrackingWheel vertical(&verticalEnc, lemlib::Omniwheel::NEW_275, -2.5);
 lemlib::Drivetrain drivetrain(&leftMotors, // left motor group
                               &rightMotors, // right motor group
                               10, // 10 inch track width
-                              lemlib::Omniwheel::NEW_325, // using new 4" omnis
-                              360, // drivetrain rpm is 360
-                              2 // horizontal drift is 2. If we had traction wheels, it would have been 8
+                              lemlib::Omniwheel::NEW_275, // using new 4" omnis
+                              600, // drivetrain rpm is 360
+                              8 // horizontal drift is 2. If we had traction wheels, it would have been 8
 );
 
 // lateral motion controller
@@ -167,23 +169,26 @@ void autonomous() {
 void opcontrol() {
 	pros::Controller master = pros::Controller(pros::E_CONTROLLER_MASTER);
 
-
-	pros::Motor intake_motor(11);
+    //Intake declaration
+	pros::Motor intake_motor(-19);
 	intake_motor.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
 
-	// pros::Motor climb_motor1(-6);
-	// pros::Motor climb_motor2(20);
-	pros::MotorGroup climb( {-6, 20}, pros::v5::MotorGears::red, pros::v5::MotorUnits::degrees);
-	climb.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    //conveyor declaration
+    pros::Motor conveyor_motor(6);
+    conveyor_motor.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
 
-	pros::Motor test(15);
-	pros::Rotation rotation(14);
+    //redirect declaration
+	pros::MotorGroup redirect( {7, -20}, pros::v5::MotorGears::red, pros::v5::MotorUnits::degrees);
+	redirect.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
 
-	pros::adi::DigitalOut rightWing('B');
-	pros::adi::DigitalOut leftWing('A');
 
-	bool leftWingDeployed = false;
-	bool rightWingDeployed = false;
+    //clamp declaration
+	pros::adi::DigitalOut clamp('B');
+	bool clampDeployed = false;
+
+
+	// pros::Motor test(15);
+	// pros::Rotation rotation(14);
 
     // controller
     // loop to continuously update motors
@@ -194,47 +199,54 @@ void opcontrol() {
         // move the chassis with curvature drive
         chassis.arcade(leftY, rightX);
 
-		if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){
-      		intake_motor.move(-127);
-     	}
-      	else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){
-        	intake_motor.move(127);
-      	}
-      	else{
+
+        //Intake + Conveyor
+		if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+      		intake_motor.move(127);
+            conveyor_motor.move(127);
+     	} else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
+        	intake_motor.move(-127);
+            conveyor_motor.move(-127);
+      	} else {
        		intake_motor.brake();
+            conveyor_motor.brake();
       	}
 
+        //Intake 
+        if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
+      		conveyor_motor.move(127);
+    	} else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
+      		conveyor_motor.move(-127);
+    	} else {
+      		conveyor_motor.brake();
+    	}
+        
+
+        //Clamp
      	if(master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L1)) {
-        	leftWingDeployed = !leftWingDeployed;
-        	leftWing.set_value(leftWingDeployed);
+        	clampDeployed = !clampDeployed;
+        	clamp.set_value(clampDeployed);
 		}
 
-    	if(master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L2)) {
-        	rightWingDeployed = !rightWingDeployed;
-        	rightWing.set_value(rightWingDeployed);
-		}
 
-    	if(master.get_digital(pros::E_CONTROLLER_DIGITAL_X)){
-      		climb.move(-127);
-    	}
-    	else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_B)){
-      		climb.move(127);
-    	}
-    	else{
-      		climb.brake();
+        //Redirect
+    	if (master.get_digital(pros::E_CONTROLLER_DIGITAL_X)) {
+      		redirect.move(-127);
+    	} else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_B)) {
+      		redirect.move(127);
+    	} else {
+      		redirect.brake();
     	}
 
-		//testing rotation sensors
-		if(master.get_digital(pros::E_CONTROLLER_DIGITAL_Y)){
-      		test.move(50);
-    	}
-    	else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_A)){
-      		test.move(-50);
-    	}
-    	else{
-      		test.brake();
-    	}
-		master.print(0, 0, "R: %d", rotation.get_position());
+		// //testing rotation sensors
+		// if(master.get_digital(pros::E_CONTROLLER_DIGITAL_Y)){ 
+      	// 	test.move(50);
+    	// } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
+      	// 	test.move(-50);
+    	// } else {
+      	// 	test.brake();
+    	// }
+		// master.print(0, 0, "R: %d", rotation.get_position());
 
 
         // delay to save resources
