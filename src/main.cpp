@@ -30,8 +30,8 @@ void initialize() {
 
   // Configure your chassis controls
   chassis.opcontrol_curve_buttons_toggle(true);  // Enables modifying the controller curve with buttons on the joysticks
-  chassis.opcontrol_drive_activebrake_set(0);    // Sets the active brake kP. We recommend ~2.  0 will disable.
-  chassis.opcontrol_curve_default_set(0, 0);     // Defaults for curve. If using tank, only the first parameter is used. (Comment this line out if you have an SD card!)
+  chassis.opcontrol_drive_activebrake_set(2);    // Sets the active brake kP. We recommend ~2.  0 will disable.
+  chassis.opcontrol_curve_default_set(3.5, 3.5);     // Defaults for curve. If using tank, only the first parameter is used. (Comment this line out if you have an SD card!)
 
   // Set the drive to your own constants from autons.cpp!
   default_constants();
@@ -43,13 +43,13 @@ void initialize() {
   // Autonomous Selector using LLEMU
   ez::as::auton_selector.autons_add({
       Auton("Example Drive\n\nDrive forward and come back.", drive_example),
-      Auton("Example Turn\n\nTurn 3 times.", turn_example),
-      Auton("Drive and Turn\n\nDrive forward, turn, come back. ", drive_and_turn),
-      Auton("Drive and Turn\n\nSlow down during drive.", wait_until_change_speed),
-      Auton("Swing Example\n\nSwing in an 'S' curve", swing_example),
-      Auton("Motion Chaining\n\nDrive forward, turn, and come back, but blend everything together :D", motion_chaining),
-      Auton("Combine all 3 movements", combining_movements),
-      Auton("Interference\n\nAfter driving forward, robot performs differently if interfered or not.", interfered_example),
+    //   Auton("Example Turn\n\nTurn 3 times.", turn_example),
+    //   Auton("Drive and Turn\n\nDrive forward, turn, come back. ", drive_and_turn),
+    //   Auton("Drive and Turn\n\nSlow down during drive.", wait_until_change_speed),
+    //   Auton("Swing Example\n\nSwing in an 'S' curve", swing_example),
+    //   Auton("Motion Chaining\n\nDrive forward, turn, and come back, but blend everything together :D", motion_chaining),
+    //   Auton("Combine all 3 movements", combining_movements),
+    //   Auton("Interference\n\nAfter driving forward, robot performs differently if interfered or not.", interfered_example),
   });
 
   // Initialize chassis and auton selector
@@ -118,7 +118,9 @@ void opcontrol() {
   pros::motor_brake_mode_e_t driver_preference_brake = MOTOR_BRAKE_BRAKE;
 
     chassis.drive_brake_set(driver_preference_brake);
-    redirect.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    redirect1.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    redirect2.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+
     intake.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     conveyor.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
 
@@ -127,6 +129,7 @@ void opcontrol() {
     ez::Piston clamp('B', true);
     bool clampState = true;
 
+    bool color_sensing = false;
 
 
   while (true) {
@@ -137,7 +140,12 @@ void opcontrol() {
     // chassis.opcontrol_arcade_flipped(ez::SPLIT);    // Flipped split arcade
     // chassis.opcontrol_arcade_flipped(ez::SINGLE);   // Flipped single arcade
 
-    //intake + conveyor
+
+    master.set_text(1, 0, "test");
+    // color.set_led_pwm(100);
+    pros::lcd::print(4, "Hue: %.2f, hue");
+
+    //Intake + Conveyor
     if(master.get_digital(DIGITAL_R1)){
         intake.move(127);
         conveyor.move(127);
@@ -151,15 +159,18 @@ void opcontrol() {
         conveyor.brake();
     }
 
-    //redirect
+    //Redirect
     if(master.get_digital(DIGITAL_UP)){
-        redirect.move(127);
+        redirect1.move(127);
+        redirect2.move(127);
     }
     else if(master.get_digital(DIGITAL_DOWN)){
-        redirect.move(-127);
+        redirect1.move(-127);
+        redirect2.move(-127);
     }
     else{
-        redirect.brake();
+        redirect1.brake();
+        redirect2.brake();
     }
 
     //clamp
@@ -168,6 +179,39 @@ void opcontrol() {
     clamp.set(clampState);
   }
 
+
+  /*Color Sorting:
+  RED RING HUE: 5-15
+  DEFAULT HUE: 30-50
+  BLUE RING HUE: 160-220
+  */
+
+  double hue = color.get_hue();
+
+  if(master.get_digital_new_press(DIGITAL_L1)){
+    color_sensing = !color_sensing;
+  }
+
+  if(color_sensing){
+    color.set_led_pwm(100);
+    if(hue > 0 && hue < 20){
+      pros::delay(100);
+      conveyor.move(-127);
+      pros::delay(300);
+      conveyor.brake();
+    }
+    else if(hue > 160 && hue < 220){
+      pros::delay(100);
+      conveyor.move(-127);
+      pros::delay(300);
+      conveyor.brake();
+    }
+    else{
+    }
+  }
+  else{
+    color.set_led_pwm(0);
+  }
 
     pros::delay(ez::util::DELAY_TIME);  // This is used for timer calculations!  Keep this ez::util::DELAY_TIME
   }
