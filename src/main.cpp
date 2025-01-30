@@ -1,84 +1,20 @@
 #include "main.h"
-#include "lemlib/api.hpp" // IWYU pragma: keep
-#include "lemlib/chassis/trackingWheel.hpp"
+#include "subsystems.hpp"
 
-// controller
-pros::Controller controller(pros::E_CONTROLLER_MASTER);
+/////
+// For installation, upgrading, documentations, and tutorials, check out our website!
+// https://ez-robotics.github.io/EZ-Template/
+/////
 
-// motor groups
-pros::MotorGroup leftMotors({-1, 2, -3, 4, -5},
-                            pros::MotorGearset::blue); // left motor group
-pros::MotorGroup rightMotors({ 11, -12, 13, -14, 15}, 
-                            pros::MotorGearset::blue); // right motor group
-
-// Inertial Sensor 
-pros::Imu imu(18);
-
-// tracking wheels (NOT APPLICABLE AT THE MOMENT)
-// horizontal tracking wheel encoder. Rotation sensor, port 20, not reversed
-pros::Rotation horizontalEnc(20);
-// vertical tracking wheel encoder. Rotation sensor, port 11, reversed
-pros::Rotation verticalEnc(-11);
-// horizontal tracking wheel. 2.75" diameter, 5.75" offset, back of the robot (negative)
-lemlib::TrackingWheel horizontal(&horizontalEnc, lemlib::Omniwheel::NEW_275, -5.75);
-// vertical tracking wheel. 2.75" diameter, 2.5" offset, left of the robot (negative)
-lemlib::TrackingWheel vertical(&verticalEnc, lemlib::Omniwheel::NEW_275, -2.5);
-
-// drivetrain settings
-lemlib::Drivetrain drivetrain(&leftMotors, // left motor group
-                              &rightMotors, // right motor group
-                              10, // 10 inch track width
-                              lemlib::Omniwheel::NEW_275, // using new 4" omnis
-                              600, // drivetrain rpm is 360
-                              8 // horizontal drift is 2. If we had traction wheels, it would have been 8
-);
-
-// lateral motion controller
-lemlib::ControllerSettings linearController(10, // proportional gain (kP)
-                                            0, // integral gain (kI)
-                                            3, // derivative gain (kD)
-                                            3, // anti windup
-                                            1, // small error range, in inches
-                                            100, // small error range timeout, in milliseconds
-                                            3, // large error range, in inches
-                                            500, // large error range timeout, in milliseconds
-                                            20 // maximum acceleration (slew)
-);
-
-// angular motion controller
-lemlib::ControllerSettings angularController(2, // proportional gain (kP)
-                                             0, // integral gain (kI)
-                                             10, // derivative gain (kD)
-                                             3, // anti windup
-                                             1, // small error range, in degrees
-                                             100, // small error range timeout, in milliseconds
-                                             3, // large error range, in degrees
-                                             500, // large error range timeout, in milliseconds
-                                             0 // maximum acceleration (slew)
-);
-
-// sensors for odometry
-lemlib::OdomSensors sensors(&vertical, // vertical tracking wheel
-                            nullptr, // vertical tracking wheel 2, set to nullptr as we don't have a second one
-                            &horizontal, // horizontal tracking wheel
-                            nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
-                            &imu // inertial sensor
-);
-
-// input curve for throttle input during driver control
-lemlib::ExpoDriveCurve throttleCurve(3, // joystick deadband out of 127
-                                     10, // minimum output where drivetrain will move out of 127
-                                     1.019 // expo curve gain
-);
-
-// input curve for steer input during driver control
-lemlib::ExpoDriveCurve steerCurve(3, // joystick deadband out of 127
-                                  10, // minimum output where drivetrain will move out of 127
-                                  1.019 // expo curve gain
-);
-
-// create the chassis
-lemlib::Chassis chassis(drivetrain, linearController, angularController, sensors, &throttleCurve, &steerCurve);
+// Chassis constructor
+ez::Drive chassis(
+    // These are your drive motors, the first motor is used for sensing!
+    {-1, 2, -3, 4, -5},     // Left Chassis Ports (negative port will reverse it!)
+    { 11, -12, 13, -14, 15},  // Right Chassis Ports (negative port will reverse it!)
+    
+    8,      // IMU Port
+    2.75,  // Wheel Diameter (Remember, 4" wheels without screw holes are actually 4.125!)
+    600);   // Wheel RPM
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -87,169 +23,152 @@ lemlib::Chassis chassis(drivetrain, linearController, angularController, sensors
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-    pros::lcd::initialize(); // initialize brain screen
-    chassis.calibrate(); // calibrate sensors
+  // Print our branding over your terminal :D
+  ez::ez_template_print();
 
-    // the default rate is 50. however, if you need to change the rate, you
-    // can do the following.
-    // lemlib::bufferedStdout().setRate(...);
-    // If you use bluetooth or a wired connection, you will want to have a rate of 10ms
+  pros::delay(500);  // Stop the user from doing anything while legacy ports configure
 
-    // for more information on how the formatting for the loggers
-    // works, refer to the fmtlib docs
+  // Configure your chassis controls
+  chassis.opcontrol_curve_buttons_toggle(true);  // Enables modifying the controller curve with buttons on the joysticks
+  chassis.opcontrol_drive_activebrake_set(0);    // Sets the active brake kP. We recommend ~2.  0 will disable.
+  chassis.opcontrol_curve_default_set(0, 0);     // Defaults for curve. If using tank, only the first parameter is used. (Comment this line out if you have an SD card!)
 
-    // thread to for brain screen and position logging
-    pros::Task screenTask([&]() {
-        while (true) {
-            // print robot location to the brain screen
-            pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
-            pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
-            pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
-            // log position telemetry
-            lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
-            // delay to save resources
-            pros::delay(50);
-        }
-    });
+  // Set the drive to your own constants from autons.cpp!
+  default_constants();
+
+  // These are already defaulted to these buttons, but you can change the left/right curve buttons here!
+  // chassis.opcontrol_curve_buttons_left_set(pros::E_CONTROLLER_DIGITAL_LEFT, pros::E_CONTROLLER_DIGITAL_RIGHT);  // If using tank, only the left side is used.
+  // chassis.opcontrol_curve_buttons_right_set(pros::E_CONTROLLER_DIGITAL_Y, pros::E_CONTROLLER_DIGITAL_A);
+
+  // Autonomous Selector using LLEMU
+  ez::as::auton_selector.autons_add({
+      Auton("Example Drive\n\nDrive forward and come back.", drive_example),
+      Auton("Example Turn\n\nTurn 3 times.", turn_example),
+      Auton("Drive and Turn\n\nDrive forward, turn, come back. ", drive_and_turn),
+      Auton("Drive and Turn\n\nSlow down during drive.", wait_until_change_speed),
+      Auton("Swing Example\n\nSwing in an 'S' curve", swing_example),
+      Auton("Motion Chaining\n\nDrive forward, turn, and come back, but blend everything together :D", motion_chaining),
+      Auton("Combine all 3 movements", combining_movements),
+      Auton("Interference\n\nAfter driving forward, robot performs differently if interfered or not.", interfered_example),
+  });
+
+  // Initialize chassis and auton selector
+  chassis.initialize();
+  ez::as::initialize();
+  master.rumble(".");
 }
 
 /**
- * Runs while the robot is disabled
+ * Runs while the robot is in the disabled state of Field Management System or
+ * the VEX Competition Switch, following either autonomous or opcontrol. When
+ * the robot is enabled, this task will exit.
  */
-void disabled() {}
+void disabled() {
+  // . . .
+}
 
 /**
- * runs after initialize if the robot is connected to field control
- */
-void competition_initialize() {}
-
-// get a path used for pure pursuit
-// this needs to be put outside a function
-ASSET(example_txt); // '.' replaced with "_" to make c++ happy
-
-/**
- * Runs during auto
+ * Runs after initialize(), and before autonomous when connected to the Field
+ * Management System or the VEX Competition Switch. This is intended for
+ * competition-specific initialization routines, such as an autonomous selector
+ * on the LCD.
  *
- * This is an example autonomous routine which demonstrates a lot of the features LemLib has to offer
+ * This task will exit when the robot is enabled and autonomous or opcontrol
+ * starts.
+ */
+void competition_initialize() {
+  // . . .
+}
+
+/**
+ * Runs the user autonomous code. This function will be started in its own task
+ * with the default priority and stack size whenever the robot is enabled via
+ * the Field Management System or the VEX Competition Switch in the autonomous
+ * mode. Alternatively, this function may be called in initialize or opcontrol
+ * for non-competition testing purposes.
+ *
+ * If the robot is disabled or communications is lost, the autonomous task
+ * will be stopped. Re-enabling the robot will restart the task, not re-start it
+ * from where it left off.
  */
 void autonomous() {
-	chassis.setPose(0, 0, 0);
-    // // Move to x: 20 and y: 15, and face heading 90. Timeout set to 4000 ms
-    chassis.moveToPose(20, 15, 90, 4000);
+  chassis.pid_targets_reset();                // Resets PID targets to 0
+  chassis.drive_imu_reset();                  // Reset gyro position to 0
+  chassis.drive_sensor_reset();               // Reset drive sensors to 0
+  chassis.drive_brake_set(MOTOR_BRAKE_HOLD);  // Set motors to hold.  This helps autonomous consistency
 
-    // // Move to x: 0 and y: 0 and face heading 270, going backwards. Timeout set to 4000ms
-    // chassis.moveToPose(0, 0, 270, 4000, {.forwards = false});
-    // // cancel the movement after it has traveled 10 inches
-    // chassis.waitUntil(10);
-    // chassis.cancelMotion();
-    // // Turn to face the point x:45, y:-45. Timeout set to 1000
-    // // dont turn faster than 60 (out of a maximum of 127)
-    // chassis.turnToPoint(45, -45, 1000, {.maxSpeed = 60});
-    // // Turn to face a direction of 90º. Timeout set to 1000
-    // // will always be faster than 100 (out of a maximum of 127)
-    // // also force it to turn clockwise, the long way around
-    // chassis.turnToHeading(90, 1000, {.direction = AngularDirection::CW_CLOCKWISE, .minSpeed = 100});
-    // // Follow the path in path.txt. Lookahead at 15, Timeout set to 4000
-    // // following the path with the back of the robot (forwards = false)
-    // // see line 116 to see how to define a path
-    // chassis.follow(example_txt, 15, 4000, false);
-    // // wait until the chassis has traveled 10 inches. Otherwise the code directly after
-    // // the movement will run immediately
-    // // Unless its another movement, in which case it will wait
-    // chassis.waitUntil(10);
-    // pros::lcd::print(4, "Traveled 10 inches during pure pursuit!");
-    // // wait until the movement is done
-    // chassis.waitUntilDone();
-    // pros::lcd::print(4, "pure pursuit finished!");
+  ez::as::auton_selector.selected_auton_call();  // Calls selected auton from autonomous selector
 }
 
 /**
- * Runs in driver control
+ * Runs the operator control code. This function will be started in its own task
+ * with the default priority and stack size whenever the robot is enabled via
+ * the Field Management System or the VEX Competition Switch in the operator
+ * control mode.
+ *
+ * If no competition control is connected, this function will run immediately
+ * following initialize().
+ *
+ * If the robot is disabled or communications is lost, the
+ * operator control task will be stopped. Re-enabling the robot will restart the
+ * task, not resume it from where it left off.
  */
 void opcontrol() {
-	pros::Controller master = pros::Controller(pros::E_CONTROLLER_MASTER);
+  // This is preference to what you like to drive on
+  pros::motor_brake_mode_e_t driver_preference_brake = MOTOR_BRAKE_BRAKE;
 
-    //Intake declaration
-	pros::Motor intake_motor(-19);
-	intake_motor.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-
-    //conveyor declaration
-    pros::Motor conveyor_motor(6);
-    conveyor_motor.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-
-    //redirect declaration
-	pros::MotorGroup redirect( {7, -20}, pros::v5::MotorGears::red, pros::v5::MotorUnits::degrees);
-	redirect.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    chassis.drive_brake_set(driver_preference_brake);
+    redirect.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    intake.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    conveyor.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
 
 
-    //clamp declaration
-	pros::adi::DigitalOut clamp('B');
-	bool clampDeployed = false;
+    //for some reason it doesn't like using the ez namespace in subsystems.hpp
+    ez::Piston clamp('B', true);
+    bool clampState = true;
 
 
-	// pros::Motor test(15);
-	// pros::Rotation rotation(14);
 
-    // controller
-    // loop to continuously update motors
-    while (true) {
-        // get joystick positions
-        int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-        int rightX = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
-        // move the chassis with curvature drive
-        chassis.arcade(leftY, rightX);
+  while (true) {
 
+    // chassis.opcontrol_tank();  // Tank control
+    chassis.opcontrol_arcade_standard(ez::SPLIT);   // Standard split arcade
+    // chassis.opcontrol_arcade_standard(ez::SINGLE);  // Standard single arcade
+    // chassis.opcontrol_arcade_flipped(ez::SPLIT);    // Flipped split arcade
+    // chassis.opcontrol_arcade_flipped(ez::SINGLE);   // Flipped single arcade
 
-        //Intake + Conveyor
-		if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
-      		intake_motor.move(127);
-            conveyor_motor.move(127);
-     	} else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
-        	intake_motor.move(-127);
-            conveyor_motor.move(-127);
-      	} else {
-       		intake_motor.brake();
-            conveyor_motor.brake();
-      	}
-
-        //Intake 
-        if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
-      		conveyor_motor.move(127);
-    	} else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
-      		conveyor_motor.move(-127);
-    	} else {
-      		conveyor_motor.brake();
-    	}
-        
-
-        //Clamp
-     	if(master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L1)) {
-        	clampDeployed = !clampDeployed;
-        	clamp.set_value(clampDeployed);
-		}
-
-
-        //Redirect
-    	if (master.get_digital(pros::E_CONTROLLER_DIGITAL_X)) {
-      		redirect.move(-127);
-    	} else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_B)) {
-      		redirect.move(127);
-    	} else {
-      		redirect.brake();
-    	}
-
-		// //testing rotation sensors
-		// if(master.get_digital(pros::E_CONTROLLER_DIGITAL_Y)){ 
-      	// 	test.move(50);
-    	// } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
-      	// 	test.move(-50);
-    	// } else {
-      	// 	test.brake();
-    	// }
-		// master.print(0, 0, "R: %d", rotation.get_position());
-
-
-        // delay to save resources
-        pros::delay(10);
+    //intake + conveyor
+    if(master.get_digital(DIGITAL_R1)){
+        intake.move(127);
+        conveyor.move(127);
     }
+    else if(master.get_digital(DIGITAL_R2)){
+        intake.move(-127);
+        conveyor.move(-127);
+    }
+    else{
+        intake.brake();
+        conveyor.brake();
+    }
+
+    //redirect
+    if(master.get_digital(DIGITAL_UP)){
+        redirect.move(127);
+    }
+    else if(master.get_digital(DIGITAL_DOWN)){
+        redirect.move(-127);
+    }
+    else{
+        redirect.brake();
+    }
+
+    //clamp
+  if(master.get_digital_new_press(DIGITAL_X)){
+    clampState = !clampState;
+    clamp.set(clampState);
+  }
+
+
+    pros::delay(ez::util::DELAY_TIME);  // This is used for timer calculations!  Keep this ez::util::DELAY_TIME
+  }
 }

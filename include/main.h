@@ -4,7 +4,7 @@
  * Contains common definitions and header files used throughout your PROS
  * project.
  *
- * \copyright Copyright (c) 2017-2023, Purdue University ACM SIGBots.
+ * Copyright (c) 2017-2021, Purdue University ACM SIGBots.
  * All rights reserved.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -22,7 +22,7 @@
  *
  * For instance, E_CONTROLLER_MASTER has a shorter name: CONTROLLER_MASTER.
  * E_CONTROLLER_MASTER is pedantically correct within the PROS styleguide, but
- * not convenient for most student programmers.
+ * not convienent for most student programmers.
  */
 #define PROS_USE_SIMPLE_NAMES
 
@@ -40,6 +40,13 @@
  * You should add more #includes here
  */
 //#include "okapi/api.hpp"
+//#include "pros/api_legacy.h"
+#include "EZ-Template/api.hpp"
+
+// More includes here...
+#include "autons.hpp"
+#include "subsystems.hpp"
+
 
 /**
  * If you find doing pros::Motor() to be tedious and you'd prefer just to do
@@ -52,12 +59,15 @@
 // using namespace pros;
 // using namespace pros::literals;
 // using namespace okapi;
+// using namespace ez;
+using namespace okapi::literals;
 
 /**
  * Prototypes for the competition control tasks are redefined here to ensure
  * that they can be called from user code (i.e. calling autonomous from a
  * button press in opcontrol() for testing purposes).
  */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
