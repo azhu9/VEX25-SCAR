@@ -1,4 +1,5 @@
 #include "main.h"
+#include "autons.hpp"
 #include "subsystems.hpp"
 
 /////
@@ -130,6 +131,9 @@ void opcontrol() {
     bool clampState = true;
 
     bool color_sensing = false;
+    bool redirect_sensing = false;
+
+    int operating_speed = 127;
 
 
   while (true) {
@@ -141,14 +145,10 @@ void opcontrol() {
     // chassis.opcontrol_arcade_flipped(ez::SINGLE);   // Flipped single arcade
 
 
-    master.set_text(1, 0, "test");
-    // color.set_led_pwm(100);
-    pros::lcd::print(4, "Hue: %.2f, hue");
-
     //Intake + Conveyor
     if(master.get_digital(DIGITAL_R1)){
         intake.move(127);
-        conveyor.move(127);
+        conveyor.move(operating_speed);
     }
     else if(master.get_digital(DIGITAL_R2)){
         intake.move(-127);
@@ -158,6 +158,16 @@ void opcontrol() {
         intake.brake();
         conveyor.brake();
     }
+
+    // if(master.get_digital(DIGITAL_L1)){
+    //     conveyor.move(127);
+    // }
+    // else if(master.get_digital(DIGITAL_L2)){
+    //     conveyor.move(-127);
+    // }
+    // else{
+    //     conveyor.brake();
+    // }
 
     //Redirect
     if(master.get_digital(DIGITAL_UP)){
@@ -177,8 +187,26 @@ void opcontrol() {
   if(master.get_digital_new_press(DIGITAL_X)){
     clampState = !clampState;
     clamp.set(clampState);
+    master.rumble(". .");
+
   }
 
+
+  double hue = color.get_hue();
+
+  if(master.get_digital_new_press(DIGITAL_A)){
+    redirect_sensing = !redirect_sensing;
+    if(redirect_sensing) operating_speed = 80;
+    else{
+      operating_speed = 127;
+    }
+    master.rumble(". .");
+
+  }
+
+  if(master.get_digital_new_press(DIGITAL_Y)){
+    color_sensing = !color_sensing;
+  }
 
   /*Color Sorting:
   RED RING HUE: 5-15
@@ -186,27 +214,44 @@ void opcontrol() {
   BLUE RING HUE: 160-220
   */
 
-  double hue = color.get_hue();
+  // if(color_sensing){
+  //   master.rumble(".");
+  //   color.set_led_pwm(100);
+  //   if(red_side){
+  //     if(hue > 160 && hue < 220){
+  //       pros::delay(300);
+  //       conveyor.brake();
+  //     }
+  //   }
+  //   else{
+  //     if(hue > 0 && hue < 20){
+  //       pros::delay(300);
+  //       conveyor.brake();
+  //     }
+  //   }
+  // }
+  // else{
+  //   color.set_led_pwm(0);
+  // }
 
-  if(master.get_digital_new_press(DIGITAL_L1)){
-    color_sensing = !color_sensing;
-  }
 
-  if(color_sensing){
-    color.set_led_pwm(100);
-    if(hue > 0 && hue < 20){
-      pros::delay(100);
-      conveyor.move(-127);
-      pros::delay(300);
-      conveyor.brake();
-    }
-    else if(hue > 160 && hue < 220){
-      pros::delay(100);
-      conveyor.move(-127);
-      pros::delay(300);
-      conveyor.brake();
+  if(redirect_sensing){
+    color.set_led_pwm(100);      //turn on sensor LED (values 0-100)
+    if(red_side){                      //for red rings
+      if(hue > 0 && hue < 20){          //hue values for red
+        pros::delay(120); //let the conveyor reach almost to the top
+        conveyor.move(-80);   //reverse the conveyor
+        pros::delay(300); //reverse for 300ms
+        conveyor.brake();              //stop conveyor
+      }
     }
     else{
+      if(hue > 160 && hue < 220){
+        pros::delay(120);
+        conveyor.move(-80);
+        pros::delay(300);
+        conveyor.brake();
+    }
     }
   }
   else{
