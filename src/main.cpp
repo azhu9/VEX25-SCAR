@@ -30,9 +30,9 @@ void initialize() {
   pros::delay(500);  // Stop the user from doing anything while legacy ports configure
 
   // Configure your chassis controls
-  chassis.opcontrol_curve_buttons_toggle(true);  // Enables modifying the controller curve with buttons on the joysticks
+  chassis.opcontrol_curve_buttons_toggle(false);  // Enables modifying the controller curve with buttons on the joysticks
   chassis.opcontrol_drive_activebrake_set(2);    // Sets the active brake kP. We recommend ~2.  0 will disable.
-  chassis.opcontrol_curve_default_set(3.5, 3.5);     // Defaults for curve. If using tank, only the first parameter is used. (Comment this line out if you have an SD card!)
+  chassis.opcontrol_curve_default_set(2.5, 3.5);     // Defaults for curve. If using tank, only the first parameter is used. (Comment this line out if you have an SD card!)
 
   // Set the drive to your own constants from autons.cpp!
   default_constants();
@@ -65,6 +65,8 @@ void initialize() {
  * the robot is enabled, this task will exit.
  */
 void disabled() {
+
+   ez::Piston redirectFlip('D', false);
   // . . .
 }
 
@@ -128,6 +130,9 @@ void opcontrol() {
 
     //for some reason it doesn't like using the ez namespace in subsystems.hpp
     ez::Piston clamp('B', true);
+    ez::Piston redirectFlip('D', false);
+
+    bool flipState = false;
     bool clampState = true;
 
     bool color_sensing = false;
@@ -148,7 +153,7 @@ void opcontrol() {
     //Intake + Conveyor
     if(master.get_digital(DIGITAL_R1)){
         intake.move(127);
-        conveyor.move(operating_speed);
+        conveyor.move(127);
     }
     else if(master.get_digital(DIGITAL_R2)){
         intake.move(-127);
@@ -158,16 +163,6 @@ void opcontrol() {
         intake.brake();
         conveyor.brake();
     }
-
-    // if(master.get_digital(DIGITAL_L1)){
-    //     conveyor.move(127);
-    // }
-    // else if(master.get_digital(DIGITAL_L2)){
-    //     conveyor.move(-127);
-    // }
-    // else{
-    //     conveyor.brake();
-    // }
 
     //Redirect
     if(master.get_digital(DIGITAL_UP)){
@@ -187,8 +182,11 @@ void opcontrol() {
   if(master.get_digital_new_press(DIGITAL_X)){
     clampState = !clampState;
     clamp.set(clampState);
-    master.rumble(". .");
+  }
 
+  if(master.get_digital_new_press(DIGITAL_L1)){
+    flipState = !flipState;
+    redirectFlip.set(flipState);
   }
 
 
@@ -200,7 +198,6 @@ void opcontrol() {
     else{
       operating_speed = 127;
     }
-    master.rumble(". .");
 
   }
 

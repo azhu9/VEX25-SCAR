@@ -8,7 +8,7 @@
 // inline pros::Motor intake(1);
 // inline pros::adi::DigitalIn limit_switch('A');
 
-inline pros::Motor conveyor(-19);
+inline pros::Motor conveyor(19);
 inline pros::Motor intake(6);
 
 // inline pros::MotorGroup redirect({20, -7}, pros::v5::MotorGears::red, pros::v5::MotorUnits::degrees);
